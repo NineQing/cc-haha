@@ -219,7 +219,18 @@ async function handleUserMessage(
   sessionStopRequested.delete(sessionId)
   clearPrewarmState(sessionId)
 
-  if (getDesktopSlashCommandName(message.content) === 'clear') {
+  const desktopSlashCommand = getDesktopSlashCommand(message.content)
+  if (desktopSlashCommand?.commandName === 'clear' && desktopSlashCommand.args.trim()) {
+    sendMessage(ws, {
+      type: 'error',
+      message: 'The /clear command does not accept arguments.',
+      code: 'INVALID_SLASH_COMMAND_ARGS',
+    })
+    sendMessage(ws, { type: 'status', state: 'idle' })
+    return
+  }
+
+  if (desktopSlashCommand?.commandName === 'clear') {
     await handleDesktopClearCommand(ws)
     return
   }
@@ -1080,7 +1091,7 @@ function translateCliMessage(cliMsg: any, sessionId: string): ServerMessage[] {
         return [{
           type: 'system_notification',
           subtype: 'compact_boundary',
-          message: 'Context compacted',
+          message: getCompactBoundaryMessage(cliMsg),
           data: cliMsg.compact_metadata ?? cliMsg,
         }]
       }
@@ -1107,9 +1118,10 @@ function sendError(ws: ServerWebSocket<WebSocketData>, message: string, code: st
   sendMessage(ws, { type: 'error', message, code })
 }
 
-function getDesktopSlashCommandName(content: string): string | null {
+function getDesktopSlashCommand(content: string): ReturnType<typeof parseSlashCommand> {
   const parsed = parseSlashCommand(content.trim())
-  return parsed?.commandName ?? null
+  if (!parsed || parsed.isMcp) return null
+  return parsed
 }
 
 function extractLocalCommandOutput(content: unknown): string | null {
@@ -1137,6 +1149,16 @@ function extractLocalCommandOutput(content: unknown): string | null {
 function extractTaggedContent(raw: string, tag: string): string | null {
   const match = raw.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))
   return match?.[1]?.trim() ?? null
+}
+
+function getCompactBoundaryMessage(cliMsg: any): string {
+  const message = typeof cliMsg?.message === 'string' ? cliMsg.message.trim() : ''
+  if (message) return message
+
+  const content = typeof cliMsg?.content === 'string' ? cliMsg.content.trim() : ''
+  if (content) return content
+
+  return 'Context compacted'
 }
 
 function rebindSessionOutput(

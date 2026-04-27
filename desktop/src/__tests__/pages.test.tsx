@@ -474,7 +474,13 @@ describe('Content-only pages render without errors', () => {
           tokenUsage: { input_tokens: 0, output_tokens: 0 },
           elapsedSeconds: 0,
           statusVerb: '',
-          slashCommands: [{ name: 'cost', description: 'Show token usage and costs' }],
+          slashCommands: [
+            { name: 'cost', description: 'Show token usage and costs' },
+            ...Array.from({ length: 14 }, (_, index) => ({
+              name: `extra-${index + 1}`,
+              description: `Extra command ${index + 1}`,
+            })),
+          ],
           agentTaskNotifications: {},
           elapsedTimer: null,
         },
@@ -492,6 +498,7 @@ describe('Content-only pages render without errors', () => {
     expect(screen.getByText('Slash commands')).toBeInTheDocument()
     expect(screen.getByText('/clear')).toBeInTheDocument()
     expect(screen.getByText('/cost')).toBeInTheDocument()
+    expect(screen.getByText('13 more commands available. Type / to search the full command list.')).toBeInTheDocument()
 
     useTabStore.setState({ tabs: [], activeTabId: null })
     useSessionStore.setState({ sessions: [], activeSessionId: null, isLoading: false, error: null })

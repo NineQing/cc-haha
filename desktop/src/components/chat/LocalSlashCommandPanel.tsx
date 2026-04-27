@@ -319,6 +319,10 @@ function HelpPanel({
   const otherCommands = (commands ?? [])
     .filter((command) => !groupedNames.has(command.name))
     .slice(0, 12)
+  const hiddenOtherCommandCount = Math.max(
+    0,
+    (commands ?? []).filter((command) => !groupedNames.has(command.name)).length - otherCommands.length,
+  )
 
   const renderCommand = (command: SlashCommandOption) => (
     <div key={command.name} className="flex min-w-0 items-start gap-3 border-t border-[var(--color-border)] px-4 py-3 first:border-t-0">
@@ -355,6 +359,11 @@ function HelpPanel({
             <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
               {otherCommands.map(renderCommand)}
             </div>
+            {hiddenOtherCommandCount > 0 && (
+              <p className="mt-2 text-xs leading-5 text-[var(--color-text-tertiary)]">
+                {hiddenOtherCommandCount} more commands available. Type / to search the full command list.
+              </p>
+            )}
           </section>
         )}
       </div>

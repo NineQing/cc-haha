@@ -224,7 +224,7 @@ describe('chatStore history mapping', () => {
           tokenUsage: { input_tokens: 0, output_tokens: 0 },
           elapsedSeconds: 0,
           statusVerb: '',
-          slashCommands: [],
+          slashCommands: [{ name: 'old-command', description: 'Old command' }],
           agentTaskNotifications: {},
           elapsedTimer: null,
         },
@@ -519,6 +519,7 @@ describe('chatStore history mapping', () => {
     expect(session?.streamingText).toBe('')
     expect(session?.chatState).toBe('idle')
     expect(session?.tokenUsage).toEqual({ input_tokens: 0, output_tokens: 0 })
+    expect(session?.slashCommands).toEqual([])
     expect(clearTasksMock).toHaveBeenCalled()
   })
 

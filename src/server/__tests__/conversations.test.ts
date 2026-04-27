@@ -235,7 +235,7 @@ describe('WebSocket Chat Integration', () => {
     }
   }
 
-  async function runTurn(sessionId: string, content: string): Promise<any[]> {
+  async function runTurn(sessionId: string, content: string, allowError = false): Promise<any[]> {
     const messages: any[] = []
     const ws = new WebSocket(`${wsUrl}/ws/${sessionId}`)
 
@@ -254,7 +254,11 @@ describe('WebSocket Chat Integration', () => {
         if (msg.type === 'error') {
           clearTimeout(timeout)
           ws.close()
-          reject(new Error(msg.message))
+          if (allowError) {
+            resolve()
+          } else {
+            reject(new Error(msg.message))
+          }
         }
         if (msg.type === 'message_complete') {
           clearTimeout(timeout)
@@ -542,6 +546,33 @@ describe('WebSocket Chat Integration', () => {
     expect(messagesRes.status).toBe(200)
     const body = await messagesRes.json() as { messages: unknown[] }
     expect(body.messages).toEqual([])
+  })
+
+  it('should reject /clear arguments without clearing the desktop session', async () => {
+    const createRes = await fetch(`${baseUrl}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workDir: process.cwd() }),
+    })
+    expect(createRes.status).toBe(201)
+    const { sessionId } = await createRes.json() as { sessionId: string }
+
+    await runTurn(sessionId, 'message before invalid clear')
+
+    const clearTurn = await runTurn(sessionId, '/clear please keep this', true)
+    expect(
+      clearTurn.some(
+        (m) => m.type === 'error' && m.code === 'INVALID_SLASH_COMMAND_ARGS',
+      ),
+    ).toBe(true)
+    expect(
+      clearTurn.some(
+        (m) => m.type === 'system_notification' && m.subtype === 'session_cleared',
+      ),
+    ).toBe(false)
+
+    const nextTurn = await runTurn(sessionId, 'message after invalid clear')
+    expect(nextTurn.some((m) => m.type === 'message_complete')).toBe(true)
   })
 
   it('should prewarm the CLI before the first user turn and reuse that process', async () => {

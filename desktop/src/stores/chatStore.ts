@@ -785,6 +785,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             elapsedSeconds: 0,
             statusVerb: '',
             tokenUsage: { input_tokens: 0, output_tokens: 0 },
+            slashCommands: [],
           }))
           useCLITaskStore.getState().clearTasks()
           useSessionStore.getState().updateSessionTitle(sessionId, 'New Session')
