@@ -108,6 +108,8 @@ export type ServerMessage =
       errorType?: string
       errorMessage?: string
     }
+  // 流式请求失败、CLI 已降级为非流式重试：完整响应一次性返回，期间无增量输出。
+  | { type: 'streaming_fallback'; cause: StreamingFallbackCause }
   | { type: 'error'; message: string; code: string; retryable?: boolean; businessErrorCode?: string }
   | { type: 'system_notification'; subtype: string; message?: string; data?: unknown }
   | { type: 'pong' }
@@ -133,6 +135,14 @@ export type ApiRetryState = {
   errorStatus: number | null
   errorType?: string
   errorMessage?: string
+  receivedAt: number
+}
+
+export type StreamingFallbackCause = 'watchdog' | 'stream_error' | '404_stream_creation' | 'unknown'
+
+// 活动回合状态（与 apiRetry 同生命周期），不进消息历史。
+export type StreamingFallbackState = {
+  cause: StreamingFallbackCause
   receivedAt: number
 }
 

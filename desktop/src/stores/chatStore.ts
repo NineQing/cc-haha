@@ -26,6 +26,7 @@ import type {
   ComputerUsePermissionResponse,
   GoalEventAction,
   MemoryEventFile,
+  StreamingFallbackState,
   UIAttachment,
   UIMessage,
   ServerMessage,
@@ -104,6 +105,8 @@ export type PerSessionState = {
   elapsedSeconds: number
   statusVerb: string
   apiRetry?: ApiRetryState | null
+  // 流式→非流式降级提示（活动回合状态，与 apiRetry 同清除时机）。
+  streamingFallback?: StreamingFallbackState | null
   slashCommands: Array<{ name: string; description: string; argumentHint?: string }>
   agentTaskNotifications: Record<string, AgentTaskNotification>
   backgroundAgentTasks?: Record<string, BackgroundAgentTask>
@@ -139,6 +142,7 @@ const DEFAULT_SESSION_STATE: PerSessionState = {
   elapsedSeconds: 0,
   statusVerb: '',
   apiRetry: null,
+  streamingFallback: null,
   slashCommands: [],
   agentTaskNotifications: {},
   backgroundAgentTasks: {},
@@ -1008,6 +1012,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             streamingResponseChars: 0,
             statusVerb: isMemberSession ? '' : randomSpinnerVerb(),
             apiRetry: null,
+            streamingFallback: null,
             elapsedTimer: timer,
             connectionState: isMemberSession ? 'connected' : session.connectionState,
           },
@@ -1100,6 +1105,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             pendingPermission: null,
             pendingComputerUsePermission: null,
             apiRetry: null,
+            streamingFallback: null,
             elapsedTimer: null,
           },
         },
@@ -1229,6 +1235,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             elapsedTimer: null,
             statusVerb: '',
             apiRetry: null,
+            streamingFallback: null,
           })),
         }
       })
@@ -1397,6 +1404,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       streamingText: '',
       chatState: 'idle',
       apiRetry: null,
+      streamingFallback: null,
       queuedUserMessages: [],
     })) }))
   },
@@ -1445,7 +1453,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 ? msg.verb
                 : '',
             ...(msg.state === 'idle' ? { activeThinkingId: null } : {}),
-            ...(msg.state === 'idle' ? { apiRetry: null } : {}),
+            ...(msg.state === 'idle' ? { apiRetry: null, streamingFallback: null } : {}),
             ...(nextMessages !== session.messages ? { messages: nextMessages } : {}),
             ...(shouldFlush ? {
               streamingText: '',
@@ -1491,6 +1499,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             chatState: 'streaming',
             activeThinkingId: null,
             apiRetry: null,
+            streamingFallback: null,
           }))
         } else if (msg.blockType === 'tool_use') {
           clearPendingToolInputDelta(sessionId)
@@ -1519,6 +1528,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             chatState: 'tool_executing',
             activeThinkingId: null,
             apiRetry: null,
+            streamingFallback: null,
           }))
         }
         break
@@ -1538,6 +1548,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             errorMessage: msg.errorMessage,
             receivedAt: Date.now(),
           },
+          chatState: session.chatState === 'idle' ? 'thinking' : session.chatState,
+          activeThinkingId: null,
+          statusVerb: '',
+        }))
+        useTabStore.getState().updateTabStatus(sessionId, 'running')
+        break
+      }
+
+      case 'streaming_fallback': {
+        // 进入非流式降级阶段：旧的重试横幅（针对失败的流式请求）已过时，
+        // 清掉换成降级提示；后续非流式重试到来的 api_retry 会重新接管显示。
+        update((session) => ({
+          streamingFallback: {
+            cause: msg.cause,
+            receivedAt: Date.now(),
+          },
+          apiRetry: null,
           chatState: session.chatState === 'idle' ? 'thinking' : session.chatState,
           activeThinkingId: null,
           statusVerb: '',
@@ -1722,6 +1749,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           chatState: 'permission_pending',
           activeThinkingId: null,
           apiRetry: null,
+          streamingFallback: null,
           messages:
             msg.toolName === 'AskUserQuestion'
               ? s.messages
@@ -1756,6 +1784,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           chatState: 'permission_pending',
           activeThinkingId: null,
           apiRetry: null,
+          streamingFallback: null,
         }))
         break
 
@@ -1783,6 +1812,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           pendingComputerUsePermission: null,
           elapsedTimer: null,
           apiRetry: null,
+          streamingFallback: null,
         }))
         useTabStore.getState().updateTabStatus(sessionId, 'idle')
         const appendedCompletionMessage = completionMessages !== session.messages
@@ -1848,6 +1878,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             pendingPermission: null,
             pendingComputerUsePermission: null,
             apiRetry: null,
+            streamingFallback: null,
           }
         })
         useTabStore.getState().updateTabStatus(sessionId, 'error')
@@ -1911,6 +1942,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             elapsedSeconds: 0,
             statusVerb: '',
             apiRetry: null,
+            streamingFallback: null,
             tokenUsage: { input_tokens: 0, output_tokens: 0 },
             streamingResponseChars: 0,
             slashCommands: [],

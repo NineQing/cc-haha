@@ -91,4 +91,71 @@ describe('StreamingIndicator', () => {
 
     expect(screen.queryByText(/tokens/)).toBeNull()
   })
+
+  it('shows the non-streaming fallback notice while waiting for the one-shot response', () => {
+    useChatStore.setState({
+      sessions: {
+        [ACTIVE_TAB]: makeSession({
+          chatState: 'thinking',
+          streamingFallback: { cause: 'watchdog', receivedAt: Date.now() },
+          elapsedSeconds: 95,
+        }),
+      },
+    })
+
+    render(<StreamingIndicator />)
+
+    const notice = screen.getByTestId('streaming-fallback-indicator')
+    expect(notice.textContent).toContain('switched to non-streaming mode')
+    // 回合计时保留，证明"还在跑"而不是卡死。
+    expect(notice.textContent).toContain('1m 35s')
+  })
+
+  it('prefers the retry banner over the fallback notice when both are active', () => {
+    useChatStore.setState({
+      sessions: {
+        [ACTIVE_TAB]: makeSession({
+          chatState: 'thinking',
+          apiRetry: {
+            attempt: 2,
+            maxRetries: 10,
+            retryDelayMs: 60_000,
+            errorStatus: 529,
+            receivedAt: Date.now(),
+          },
+          streamingFallback: { cause: 'stream_error', receivedAt: Date.now() },
+        }),
+      },
+    })
+
+    render(<StreamingIndicator />)
+
+    // api_retry 携带更具体的进度（第 N 次/倒计时），优先级高于泛化的降级提示。
+    expect(screen.getByTestId('api-retry-indicator')).toBeTruthy()
+    expect(screen.queryByTestId('streaming-fallback-indicator')).toBeNull()
+  })
+
+  it('switches the retry banner from a countdown to "retrying now" once the delay elapses', () => {
+    useChatStore.setState({
+      sessions: {
+        [ACTIVE_TAB]: makeSession({
+          chatState: 'thinking',
+          apiRetry: {
+            attempt: 3,
+            maxRetries: 10,
+            retryDelayMs: 1000,
+            errorStatus: null,
+            // 倒计时早已结束：请求已在途，不该再显示"waiting 0s"。
+            receivedAt: Date.now() - 10_000,
+          },
+        }),
+      },
+    })
+
+    render(<StreamingIndicator />)
+
+    const banner = screen.getByTestId('api-retry-indicator')
+    expect(banner.textContent).toContain('retrying now')
+    expect(banner.textContent).not.toContain('waiting')
+  })
 })

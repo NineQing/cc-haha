@@ -1864,6 +1864,9 @@ export const zh: Record<TranslationKey, string> = {
   'chat.retry.httpStatus': 'HTTP {status}',
   'chat.retry.networkError': '网络错误',
   'chat.retry.waiting': '等待 {seconds}s',
+  'chat.retry.retrying': '正在重试…',
+  'chat.fallback.title': '网络波动，已切换为非流式请求',
+  'chat.fallback.detail': '响应将一次性返回，可能需要较长时间',
 
   // ─── Tabs ──────────────────────────────────────
   'tabs.close': '关闭',

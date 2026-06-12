@@ -7,7 +7,7 @@
  */
 
 import type { ServerWebSocket } from 'bun'
-import type { ClientMessage, ServerMessage } from './events.js'
+import type { ClientMessage, ServerMessage, StreamingFallbackCause } from './events.js'
 import * as os from 'node:os'
 import {
   ConversationStartupError,
@@ -1692,6 +1692,9 @@ export function translateCliMessage(cliMsg: any, sessionId: string): ServerMessa
         const apiRetryMessage = toApiRetryServerMessage(cliMsg)
         return apiRetryMessage ? [apiRetryMessage] : []
       }
+      if (subtype === 'streaming_fallback') {
+        return [toStreamingFallbackServerMessage(cliMsg)]
+      }
       if (subtype === 'init') {
         // CLI 初始化完成 — 缓存 slash commands 并发送模型信息
         // NOTE: Do NOT send status:idle here — the CLI init fires while
@@ -1900,6 +1903,21 @@ function toApiRetryServerMessage(cliMsg: any): ServerMessage | null {
     ...(errorType ? { errorType } : {}),
     ...(errorMessage ? { errorMessage } : {}),
   }
+}
+
+const STREAMING_FALLBACK_CAUSES: ReadonlySet<StreamingFallbackCause> = new Set([
+  'watchdog',
+  'stream_error',
+  '404_stream_creation',
+])
+
+function toStreamingFallbackServerMessage(cliMsg: any): ServerMessage {
+  // 未识别的 cause 兜底为 unknown 而不是丢消息：提示本身比成因重要。
+  const cause: StreamingFallbackCause =
+    typeof cliMsg.cause === 'string' && STREAMING_FALLBACK_CAUSES.has(cliMsg.cause as StreamingFallbackCause)
+      ? (cliMsg.cause as StreamingFallbackCause)
+      : 'unknown'
+  return { type: 'streaming_fallback', cause }
 }
 
 function sendMessage(ws: ServerWebSocket<WebSocketData>, message: ServerMessage) {

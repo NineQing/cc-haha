@@ -1862,6 +1862,9 @@ export const en = {
   'chat.retry.httpStatus': 'HTTP {status}',
   'chat.retry.networkError': 'network error',
   'chat.retry.waiting': 'waiting {seconds}s',
+  'chat.retry.retrying': 'retrying now…',
+  'chat.fallback.title': 'Network hiccup — switched to non-streaming mode',
+  'chat.fallback.detail': 'response arrives in one piece, this can take a while',
 
   // ─── Tabs ──────────────────────────────────────
   'tabs.close': 'Close',

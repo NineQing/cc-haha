@@ -896,6 +896,25 @@ describe('MessageList nested tool calls', () => {
     expect(screen.getByText(/waiting \d+s/)).toBeTruthy()
   })
 
+  it('shows the non-streaming fallback notice in the active turn indicator', () => {
+    useChatStore.setState({
+      sessions: {
+        [ACTIVE_TAB]: makeSessionState({
+          chatState: 'thinking',
+          streamingFallback: {
+            cause: 'watchdog',
+            receivedAt: Date.now(),
+          },
+        }),
+      },
+    })
+
+    render(<MessageList />)
+
+    expect(screen.getByTestId('streaming-fallback-indicator')).toBeTruthy()
+    expect(screen.getByText(/switched to non-streaming mode/)).toBeTruthy()
+  })
+
   it('renders compact completion as an expandable timeline divider', () => {
     useChatStore.setState({
       sessions: {

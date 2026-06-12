@@ -2888,6 +2888,72 @@ describe('chatStore history mapping', () => {
     expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.apiRetry).toBeNull()
   })
 
+  it('tracks the streaming fallback notice and supersedes a stale retry banner', () => {
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: makeSession({
+          messages: [],
+          chatState: 'thinking',
+          statusVerb: 'Thinking',
+          apiRetry: {
+            attempt: 10,
+            maxRetries: 10,
+            retryDelayMs: 1000,
+            errorStatus: 529,
+            receivedAt: Date.now() - 5_000,
+          },
+        }),
+      },
+    })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'streaming_fallback',
+      cause: 'watchdog',
+    })
+
+    const fallbackSession = useChatStore.getState().sessions[TEST_SESSION_ID]
+    expect(fallbackSession?.streamingFallback).toMatchObject({ cause: 'watchdog' })
+    // 旧的流式重试横幅针对已放弃的请求，必须被降级提示接管。
+    expect(fallbackSession?.apiRetry).toBeNull()
+    expect(fallbackSession?.chatState).toBe('thinking')
+    expect(fallbackSession?.statusVerb).toBe('')
+    expect(updateTabStatusMock).toHaveBeenLastCalledWith(TEST_SESSION_ID, 'running')
+
+    // 非流式响应的首个内容块到达即清除降级提示。
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'content_start',
+      blockType: 'text',
+    })
+    expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.streamingFallback).toBeNull()
+  })
+
+  it('keeps the fallback notice when idle and clears it on turn completion', () => {
+    useChatStore.setState({
+      sessions: {
+        [TEST_SESSION_ID]: makeSession({
+          messages: [],
+          chatState: 'idle',
+        }),
+      },
+    })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'streaming_fallback',
+      cause: '404_stream_creation',
+    })
+
+    // idle 会话收到降级信号说明回合仍在跑，状态条要回到 thinking。
+    const session = useChatStore.getState().sessions[TEST_SESSION_ID]
+    expect(session?.chatState).toBe('thinking')
+    expect(session?.streamingFallback).toMatchObject({ cause: '404_stream_creation' })
+
+    useChatStore.getState().handleServerMessage(TEST_SESSION_ID, {
+      type: 'message_complete',
+      usage: { input_tokens: 1, output_tokens: 0 },
+    })
+    expect(useChatStore.getState().sessions[TEST_SESSION_ID]?.streamingFallback).toBeNull()
+  })
+
   it('renders memory saved notifications as chat memory events', () => {
     useChatStore.setState({
       sessions: {
