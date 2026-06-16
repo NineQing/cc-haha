@@ -252,6 +252,39 @@ describe('ProviderService', () => {
       expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES).toBe('thinking')
     })
 
+    test('custom providers can mark main and role models as 1M-capable', async () => {
+      const svc = new ProviderService()
+      const provider = await svc.addProvider(sampleInput({
+        models: {
+          main: 'claude-sonnet-4-6',
+          haiku: 'claude-haiku-4-5',
+          sonnet: 'claude-sonnet-4-6',
+          opus: 'claude-opus-4-7',
+        },
+        model1mSupport: {
+          main: true,
+          haiku: false,
+          sonnet: true,
+          opus: true,
+        },
+      }))
+
+      await svc.activateProvider(provider.id)
+
+      const settings = await readSettings()
+      const env = settings.env as Record<string, string>
+      expect(env.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6[1m]')
+      expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('claude-haiku-4-5')
+      expect(env.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('claude-sonnet-4-6[1m]')
+      expect(env.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('claude-opus-4-7[1m]')
+
+      const runtimeEnv = await svc.getProviderRuntimeEnv(provider.id)
+      expect(runtimeEnv.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6[1m]')
+      expect(runtimeEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('claude-haiku-4-5')
+      expect(runtimeEnv.ANTHROPIC_DEFAULT_SONNET_MODEL).toBe('claude-sonnet-4-6[1m]')
+      expect(runtimeEnv.ANTHROPIC_DEFAULT_OPUS_MODEL).toBe('claude-opus-4-7[1m]')
+    })
+
     test('DeepSeek preset follows the global thinking toggle instead of forcing disabled thinking', async () => {
       const svc = new ProviderService()
       const provider = await svc.addProvider(sampleInput({

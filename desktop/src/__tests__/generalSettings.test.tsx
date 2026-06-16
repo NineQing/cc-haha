@@ -1650,6 +1650,10 @@ describe('Settings > Providers tab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Add Provider|添加服务商/i }))
     const dialog = screen.getByRole('dialog')
+    await waitFor(() => {
+      const settingsTextarea = dialog.querySelector('textarea')
+      expect(settingsTextarea?.value).toContain('"ANTHROPIC_MODEL"')
+    })
     fireEvent.change(within(dialog).getByPlaceholderText('sk-...'), { target: { value: 'sk-test' } })
     fireEvent.change(within(dialog).getByLabelText(/Main Model|主模型/i), { target: { value: 'gpt-5.5' } })
     fireEvent.click(within(dialog).getByRole('button', { name: /Save|Add|保存|添加/i }))
@@ -1733,6 +1737,88 @@ describe('Settings > Providers tab', () => {
       env: expect.objectContaining({
         EXISTING_ENV: '1',
         ENABLE_TOOL_SEARCH: 'false',
+      }),
+    }))
+  })
+
+  it('saves 1M model declarations for the main and role mappings', async () => {
+    providerStoreState.createProvider = vi.fn().mockResolvedValue({
+      id: 'provider-new',
+      presetId: 'custom',
+      name: 'Custom',
+      apiKey: 'sk-test',
+      baseUrl: 'https://api.example.com/anthropic',
+      apiFormat: 'anthropic',
+      models: {
+        main: 'claude-sonnet-4-6',
+        haiku: 'claude-haiku-4-5',
+        sonnet: 'claude-sonnet-4-6',
+        opus: 'claude-opus-4-7',
+      },
+      model1mSupport: {
+        main: true,
+        haiku: false,
+        sonnet: true,
+        opus: false,
+      },
+    })
+    providerStoreState.presets = [
+      {
+        id: 'custom',
+        name: 'Custom',
+        baseUrl: 'https://api.example.com/anthropic',
+        apiFormat: 'anthropic',
+        defaultModels: {
+          main: 'claude-sonnet-4-6',
+          haiku: 'claude-haiku-4-5',
+          sonnet: 'claude-sonnet-4-6',
+          opus: 'claude-opus-4-7',
+        },
+        needsApiKey: true,
+        websiteUrl: '',
+      },
+    ]
+
+    render(<Settings />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Provider|添加服务商/i }))
+    const dialog = screen.getByRole('dialog')
+    await waitFor(() => {
+      const settingsTextarea = dialog.querySelector('textarea')
+      expect(settingsTextarea?.value).toContain('"ANTHROPIC_MODEL"')
+    })
+    fireEvent.change(within(dialog).getByPlaceholderText('sk-...'), { target: { value: 'sk-test' } })
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /1M support: main/i }))
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /1M support: sonnet/i }))
+    await waitFor(() => {
+      const settingsTextarea = dialog.querySelector('textarea')
+      expect(settingsTextarea?.value).toContain('"ANTHROPIC_MODEL": "claude-sonnet-4-6[1m]"')
+      expect(settingsTextarea?.value).toContain('"ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6[1m]"')
+      expect(settingsTextarea?.value).toContain('"CLAUDE_CODE_MODEL_CONTEXT_WINDOWS"')
+      expect(settingsTextarea?.value).toContain('\\"claude-sonnet-4-6\\":1000000')
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: /Save|Add|保存|添加/i }))
+
+    await waitFor(() => {
+      expect(providerStoreState.createProvider).toHaveBeenCalledWith(expect.objectContaining({
+        model1mSupport: {
+          main: true,
+          haiku: false,
+          sonnet: true,
+          opus: false,
+        },
+        modelContextWindows: {
+          'claude-sonnet-4-6': 1000000,
+        },
+      }))
+    })
+    expect(MOCK_UPDATE_SETTINGS).toHaveBeenCalledWith(expect.objectContaining({
+      env: expect.objectContaining({
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6[1m]',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6[1m]',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-7',
+        CLAUDE_CODE_MODEL_CONTEXT_WINDOWS: '{"claude-sonnet-4-6":1000000}',
       }),
     }))
   })

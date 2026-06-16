@@ -43,6 +43,13 @@ export const ModelMappingSchema = z.object({
   opus: z.string(),
 })
 
+export const Model1mSupportSchema = z.object({
+  main: z.boolean(),
+  haiku: z.boolean(),
+  sonnet: z.boolean(),
+  opus: z.boolean(),
+})
+
 export const AutoCompactWindowSchema = z.number().int().min(16000).max(10000000)
 export const ModelContextWindowsSchema = z.record(
   z.string().min(1),
@@ -60,6 +67,7 @@ export const SavedProviderSchema = z.object({
   apiFormat: ApiFormatSchema.default('anthropic'),
   runtimeKind: ProviderRuntimeKindSchema.default('anthropic_compatible'),
   models: ModelMappingSchema,
+  model1mSupport: Model1mSupportSchema.optional(),
   autoCompactWindow: AutoCompactWindowSchema.optional(),
   modelContextWindows: ModelContextWindowsSchema.optional(),
   toolSearchEnabled: ToolSearchEnabledSchema.optional(),
@@ -82,6 +90,7 @@ export const CreateProviderSchema = z.object({
   apiFormat: ApiFormatSchema.default('anthropic'),
   runtimeKind: ProviderRuntimeKindSchema.default('anthropic_compatible'),
   models: ModelMappingSchema,
+  model1mSupport: Model1mSupportSchema.optional(),
   autoCompactWindow: AutoCompactWindowSchema.optional(),
   modelContextWindows: ModelContextWindowsSchema.optional(),
   toolSearchEnabled: ToolSearchEnabledSchema.optional(),
@@ -96,6 +105,7 @@ export const UpdateProviderSchema = z.object({
   apiFormat: ApiFormatSchema.optional(),
   runtimeKind: ProviderRuntimeKindSchema.optional(),
   models: ModelMappingSchema.optional(),
+  model1mSupport: Model1mSupportSchema.nullable().optional(),
   autoCompactWindow: AutoCompactWindowSchema.nullable().optional(),
   modelContextWindows: ModelContextWindowsSchema.nullable().optional(),
   toolSearchEnabled: ToolSearchEnabledSchema.optional(),
@@ -118,6 +128,7 @@ export const ReorderProvidersSchema = z.object({
 
 // TypeScript types
 export type ModelMapping = z.infer<typeof ModelMappingSchema>
+export type Model1mSupport = z.infer<typeof Model1mSupportSchema>
 export type SavedProvider = z.infer<typeof SavedProviderSchema>
 export type ProvidersIndex = z.infer<typeof ProvidersIndexSchema>
 export type CreateProviderInput = z.infer<typeof CreateProviderSchema>
